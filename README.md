@@ -2,13 +2,15 @@
 
 An end-to-end Machine Learning project that predicts a student's **final grade** (A, B, C, D, F) based on study habits and academic performance features.
 
+**✨ Ready for Streamlit Cloud Deployment!**
+
 ## Tech Stack
 
 | Layer      | Technology                         |
 |------------|------------------------------------|
 | ML         | scikit-learn (LogisticRegression)  |
-| Backend    | FastAPI + Uvicorn                  |
 | Frontend   | Streamlit                          |
+| Backend    | FastAPI + Uvicorn (legacy)         |
 | Language   | Python 3.10+                       |
 
 ## Project Structure
@@ -39,23 +41,58 @@ student-performance-ml/
 
 ## Quickstart
 
-### 1 — Install dependencies
+### Local Development
+
+#### 1 — Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2 — Generate dataset & train model
+#### 2 — Generate dataset & train model
 
 ```bash
 # Generate synthetic data
 python data/generate_data.py
 
 # Train model (also saves scaler.pkl and label_encoder.pkl)
-cd model && python train.py
+python model/train.py
 ```
 
-### 3 — Start the FastAPI backend
+#### 3 — Run the Streamlit app
+
+**Option A: Direct run (recommended)**
+```bash
+streamlit run frontend/app.py
+```
+
+**Option B: Using main entry point**
+```bash
+streamlit run streamlit_app.py
+```
+
+Open the URL shown in the terminal (usually `http://localhost:8501`).
+
+### ☁️ Streamlit Cloud Deployment
+
+The app is optimized for one-click deployment to Streamlit Cloud!
+
+1. Push this repository to GitHub (including the `.pkl` model files)
+2. Visit [share.streamlit.io](https://share.streamlit.io/)
+3. Connect your GitHub repository
+4. Set main file to: `frontend/app.py`
+5. Deploy!
+
+📖 **See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.**
+
+### Legacy: FastAPI Backend (Optional)
+
+<details>
+<summary>Click to expand FastAPI backend instructions</summary>
+
+The project originally used a separate FastAPI backend. This is still available but not needed for Streamlit Cloud deployment.
+
+#### Start the FastAPI backend
 
 ```bash
 uvicorn backend.main:app --reload
@@ -64,13 +101,7 @@ uvicorn backend.main:app --reload
 The API will be available at `http://localhost:8000`.
 Interactive docs: `http://localhost:8000/docs`
 
-### 4 — Start the Streamlit frontend
-
-```bash
-streamlit run frontend/app.py
-```
-
-Open the URL shown in the terminal (usually `http://localhost:8501`).
+</details>
 
 ## API Reference
 

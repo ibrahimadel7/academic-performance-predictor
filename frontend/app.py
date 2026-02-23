@@ -1,12 +1,18 @@
 """
 Streamlit frontend for the Student Performance Predictor.
-Sends prediction requests to the FastAPI backend and displays results.
+Includes embedded prediction logic for Streamlit Cloud deployment.
 """
 
-import requests
+import os
+import sys
+import joblib
+import numpy as np
 import streamlit as st
 
-BACKEND_URL = "http://localhost:8000"
+# Add parent directory to path to import model modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "model")
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -16,6 +22,24 @@ st.set_page_config(
     page_icon="🎓",
     layout="centered",
 )
+
+# ---------------------------------------------------------------------------
+# Load ML artifacts
+# ---------------------------------------------------------------------------
+@st.cache_resource
+def load_model_artifacts():
+    """Load model, scaler, and label encoder from disk. Cached for performance."""
+    try:
+        model = joblib.load(os.path.join(MODEL_DIR, "model.pkl"))
+        scaler = joblib.load(os.path.join(MODEL_DIR, "scaler.pkl"))
+        label_encoder = joblib.load(os.path.join(MODEL_DIR, "label_encoder.pkl"))
+        return model, scaler, label_encoder
+    except FileNotFoundError:
+        st.error("❌ Model artifacts not found. Please train the model first by running `python model/train.py`")
+        st.stop()
+        return None, None, None
+
+model, scaler, label_encoder = load_model_artifacts()
 
 # ---------------------------------------------------------------------------
 # Title
@@ -81,34 +105,42 @@ GRADE_COLORS = {
 }
 
 
-def call_predict_api(payload: dict) -> dict:
-    """Send a POST request to the prediction endpoint and return JSON response."""
-    response = requests.post(f"{BACKEND_URL}/predict", json=payload, timeout=10)
-    response.raise_for_status()
-    return response.json()
+def predict_grade(study_hours: float, attendance: float, sleep_hours: float, midterm_score: float) -> dict:
+    """Make prediction using the loaded model."""
+    try:
+        features = np.array([[study_hours, attendance, sleep_hours, midterm_score]])
+        features_scaled = scaler.transform(features)
+
+        prediction_idx = model.predict(features_scaled)[0]
+        proba = model.predict_proba(features_scaled)[0]
+
+        grade = label_encoder.inverse_transform([prediction_idx])[0]
+        confidence = float(proba[prediction_idx])
+
+        probabilities = {
+            cls: round(float(p), 4)
+            for cls, p in zip(label_encoder.classes_, proba)
+        }
+
+        return {
+            "predicted_grade": grade,
+            "confidence": round(confidence, 4),
+            "probabilities": probabilities,
+        }
+    except Exception as exc:
+        st.error(f"❌ Prediction error: {str(exc)}")
+        st.stop()
+        return {}
 
 
 if st.button("🔮 Predict Grade", use_container_width=True, type="primary"):
-    payload = {
-        "study_hours": study_hours,
-        "attendance": float(attendance),
-        "sleep_hours": sleep_hours,
-        "midterm_score": midterm_score,
-    }
-
     with st.spinner("Predicting…"):
-        try:
-            result = call_predict_api(payload)
-        except requests.exceptions.ConnectionError:
-            st.error(
-                "❌ Cannot connect to the backend. "
-                "Make sure the FastAPI server is running: "
-                "`uvicorn backend.main:app --reload`"
-            )
-            st.stop()
-        except requests.exceptions.HTTPError as exc:
-            st.error(f"❌ API error: {exc}")
-            st.stop()
+        result = predict_grade(
+            study_hours=study_hours,
+            attendance=float(attendance),
+            sleep_hours=sleep_hours,
+            midterm_score=midterm_score,
+        )
 
     grade = result["predicted_grade"]
     confidence = result["confidence"]
@@ -135,4 +167,4 @@ if st.button("🔮 Predict Grade", use_container_width=True, type="primary"):
 # Footer
 # ---------------------------------------------------------------------------
 st.divider()
-st.caption("Built with FastAPI · Scikit-learn · Streamlit")
+st.caption("Built with Scikit-learn · Streamlit")
